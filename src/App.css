@@ -46,3 +46,7 @@
         transform: rotate(360deg);
     }
 }
+
+.leaflet-routing-add-waypoint, .leaflet-routing-alt {
+  display: none;
+}
