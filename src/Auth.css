@@ -1,0 +1,41 @@
+.divPrincipal {
+    background: linear-gradient(
+        180deg,
+        rgba(56, 212, 171, 1) 0%,
+        rgba(13, 170, 168, 1) 100%
+    );
+    background-repeat: no-repeat;
+}
+
+.formularioAuth {
+    background-color: #deefe7;
+    width: 40%;
+    border-radius: 4px;
+}
+
+.divRegistro {
+    border-radius: 42px;
+    padding: 30px;
+    color: white;
+}
+
+.space-grotesk {
+    font-family: "Space Grotesk", sans-serif;
+    font-optical-sizing: auto;
+    font-weight: 2px;
+    font-style: normal;
+}
+
+.linksAuth {
+    color: #e85a0c;
+}
+
+.linksAuth:hover {
+    color: #ff5900;
+}
+
+@media screen and (max-width: 767px) {
+    .formularioAuth {
+        width: auto !important;
+    }
+}

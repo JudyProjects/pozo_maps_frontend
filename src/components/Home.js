@@ -4,8 +4,7 @@ const Home = () => {
     const [message, setMessage] = useState('');
     useEffect(() => {
         /* fetch(`${process.env.REACT_APP_SERVER_PATH}/`)
-            .then(response => response.text())
-            .then(data => setMessage(data)); */
+            .then(response => response.text()) */
     }, []);
     return (
         <div className='container mt-5 text-center'>
