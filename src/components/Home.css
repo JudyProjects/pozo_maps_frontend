@@ -1,0 +1,33 @@
+.home-cover {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 50px;
+}
+
+.cover-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+    border-radius: 30px;
+}
+
+.cover-text {
+    position: absolute;
+    color: white;
+    text-shadow: 1px 1px 5px rgba(0, 0, 0, 0.7);
+}
+
+.cover-text h1 {
+    font-size: 2.5rem;
+    margin: 0;
+}
+
+.cover-text p {
+    font-size: 1.2rem;
+    margin-top: 10px;
+}

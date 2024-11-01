@@ -1,0 +1,68 @@
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 20px;
+    background-color: #e6e6e6;
+    color: #363636;
+}
+
+.navbar-logo a {
+    color: #363636;
+    font-size: 1.5rem;
+    text-decoration: none;
+}
+
+.navbar-links {
+    list-style: none;
+    display: flex;
+    gap: 20px;
+    text-decoration: none;
+}
+
+.linksNavbar{
+    color: #363636;
+    text-decoration: none !important;
+}
+
+.logoApp {
+    max-width: 60px;
+    max-height: 60px;
+}
+
+.navbar-username {
+    cursor: pointer;
+    position: relative;
+    font-weight: bold;
+}
+
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background-color: white;
+    border: 1px solid #ddd;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    width: 150px;
+}
+
+.dropdown-menu a,
+.dropdown-menu button {
+    padding: 5px 10px;
+    text-align: left;
+    border: none;
+    background: none;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.dropdown-menu a:hover,
+.dropdown-menu button:hover {
+    background-color: #f0f0f0;
+}
+
+.anchorMiPerfil{
+    color: #23866d;
+}
