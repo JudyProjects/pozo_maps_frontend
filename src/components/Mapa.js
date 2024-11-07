@@ -8,6 +8,7 @@ import { defaultIcon, warningIcon } from "./Map_Components/constants";
 
 const Mapa = () => {
     const mapRef = useRef(null);
+    const routingControlRef = useRef(null); // Para acceder al control de rutas más tarde
 
     useEffect(() => {
         if (!mapRef.current) {
@@ -39,7 +40,8 @@ const Mapa = () => {
             }).addTo(mapRef.current); */
 
             // Añadir el geocoder al mapa
-            L.Routing.control({
+            routingControlRef.current = L.Routing.control({
+                addWaypoints: true,
                 showAlternatives: false,
                 router: new L.Routing.mapbox(
                     "pk.eyJ1IjoiZnJhbmNvLXNhbmNyaXMyOSIsImEiOiJjbTJhendnc3cwbXFsMmtxNHBzYm80ZGdtIn0.gHW9ZszrPfh0cUs-zVvI3Q"
@@ -50,7 +52,20 @@ const Mapa = () => {
                 lineOptions: {
                     styles: [{ color: "green", weight: 3 }], // Define el estilo de la línea
                 },
+                waypointMode: "snap"
             }).addTo(mapRef.current);
+
+            const plan = routingControlRef.current.getPlan();
+                plan.options.addWaypoints = false;
+
+            // Interceptar clics en el mapa que intentan agregar waypoints directamente
+            mapRef.current.on("click", function (e) {
+                if (!routingControlRef.current || !routingControlRef.current.getPlan()) return;
+
+                // Desactivar la opción de agregar waypoints haciendo clic directamente en el mapa
+                const plan = routingControlRef.current.getPlan();
+                plan.options.addWaypoints = false;
+            });
         }
 
         // Establece los límites para evitar el desplazamiento fuera de Uruguay
