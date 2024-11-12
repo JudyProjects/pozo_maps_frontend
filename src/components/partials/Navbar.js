@@ -3,7 +3,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import './Navbar.css';
 import logo from '../../resources/Pozo maps.png';
-import logoUtec from '../../resources/logoUtec.png';
 
 const Navbar = () => {
     const [username, setUsername] = useState('');
@@ -56,9 +55,6 @@ const Navbar = () => {
             <div className="navbar-logo">
                 <Link to="/"><img src={logo} className='logoApp' alt="Logo de la aplicación" /></Link>
             </div>
-            <ul className="navbar-links">
-                <li><Link to="/"><img src={logoUtec} className='logoApp' alt="Logo de UTEC"></img></Link></li>
-            </ul>
             <div className="navbar-username" onClick={toggleDropdown}>
                 {username ? (
                     <div className="dropdown">

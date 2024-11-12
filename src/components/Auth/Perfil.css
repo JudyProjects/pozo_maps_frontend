@@ -1,7 +1,3 @@
-.profile-container{
-    height: 80vh;
-}
-
 .formularioIzq{
     height: 100%;
     width: 50%;
@@ -20,4 +16,14 @@
     flex-direction: column;
     text-align: center;
     align-items: center;
+}
+
+.formulario{
+    display: flex;
+    justify-content: center;
+    margin-top: 30px;
+}
+
+.anchoInput{
+    min-width: 15vw;
 }

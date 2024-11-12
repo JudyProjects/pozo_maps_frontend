@@ -41,16 +41,16 @@ const Profile = () => {
     return (
         <div className="profile-container">
             <h2 className='text-center'>Mi Perfil</h2>
-            <div className='h-50'>
+            <div className='h-50 formulario'>
                 <form onSubmit={handleSubmit} className='formularioIzq'>
                     <div className='divCampos'>
                         <div className='form-group m-3'>
                             <label>Nombre:</label>
-                            <input type="text" className='form-control' name="name" value={profileData.name} onChange={handleChange} />
+                            <input type="text" className='form-control anchoInput' name="name" value={profileData.name} onChange={handleChange} />
                         </div>
                         <div className='form-group m-3'>
                             <label>Correo electrónico:</label>
-                            <input type="email" className='form-control' name="email" value={profileData.email} onChange={handleChange} />
+                            <input type="email" className='form-control anchoInput' name="email" value={profileData.email} onChange={handleChange} />
                         </div>
                         <div className='d-flex justify-content-center align-items-center'>
                     <button type="submit" className='btn btn-primary m-3 btnPrimario'>Guardar</button>

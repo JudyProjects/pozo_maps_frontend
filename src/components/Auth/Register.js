@@ -57,7 +57,7 @@ const Register = () => {
     }
 
     return (
-        <div className='d-flex flex-column justify-content-center p-5 align-items-center space-grotesk min-vh-100 divPrincipal'>
+        <div className='d-flex flex-column justify-content-center p-5 align-items-center space-grotesk divPrincipal'>
             <div className='d-flex justify-content-center p-5 divRegistro fs-5'>
                 <h1>Registrarse</h1>
             </div>
