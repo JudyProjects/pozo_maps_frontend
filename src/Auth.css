@@ -5,6 +5,7 @@
         rgba(13, 170, 168, 1) 100%
     );
     background-repeat: no-repeat;
+    min-height: 76.6vh;
 }
 
 .formularioAuth {

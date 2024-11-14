@@ -1,5 +1,22 @@
+html,
+body,
+#root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
 .App {
     text-align: center;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
 .App-logo {
@@ -7,14 +24,14 @@
     pointer-events: none;
 }
 
-.btnPrimario{
-  background-color: #ff5720;
-  border-color: #ff5720;
+.btnPrimario {
+    background-color: #ff5720;
+    border-color: #ff5720;
 }
 
-.btnPrimario:hover{
-  background-color: #E85A0C;
-  border-color: #E85A0C;
+.btnPrimario:hover {
+    background-color: #e85a0c;
+    border-color: #e85a0c;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -47,6 +64,7 @@
     }
 }
 
-.leaflet-routing-add-waypoint, .leaflet-routing-alt {
-  display: none;
+.leaflet-routing-add-waypoint,
+.leaflet-routing-alt {
+    display: none;
 }
