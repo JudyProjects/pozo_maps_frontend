@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 import '../../Auth.css';
 
 const Register = () => {
@@ -9,7 +8,6 @@ const Register = () => {
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
-    const navigate = useNavigate();
 
 
     const validateEmail = (email) => {
@@ -42,13 +40,12 @@ const Register = () => {
                 password,
             }, { withCredentials: true });
             if (response.data.auth) {
-                alert('Registro exitoso');
                 setErrorMessage('');
                 setName('');
                 setEmail('');
                 setPassword('');
                 setConfirmPassword('');
-                navigate('/');
+                window.location.href = '/';
             }
         } catch (error) {
             setErrorMessage('Error en el registro.');
