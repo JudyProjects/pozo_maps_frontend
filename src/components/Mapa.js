@@ -1,258 +1,568 @@
-import React, { useEffect, useState, useRef } from "react";
-import L, { icon } from "leaflet";
+import React, { useEffect, useRef, useState } from "react";
+import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import "leaflet-routing-machine";
 import "leaflet-control-geocoder";
+import axios from "axios";
 import { defaultIcon, warningIcon } from "./Map_Components/constants";
 
 const Mapa = () => {
-    const mapRef = useRef(null);
-    const routingControlRef = useRef(null);
-    const currentRouteRef = useRef(null);
-    const markersLayerRef = useRef(null);
-    const coloredRoutesRef = useRef([]);
+	const mapRef = useRef(null);
+	const routingControlRef = useRef(null);
+	const currentRouteRef = useRef(null);
+	const markersLayerRef = useRef(null);
+	const coloredRoutesRef = useRef([]);
+	const [user, setUser] = useState(null);
+	const currentRouteId = useRef(null);
 
-    // Función para calcular la distancia entre un punto y un segmento de línea
-    const distanceToSegment = (point, start, end) => {
-        const lat = point.lat;
-        const lng = point.lng;
-        const x = start.lat;
-        const y = start.lng;
-        const dx = end.lat - x;
-        const dy = end.lng - y;
+	const isNearRoute = (latlng) => {
+		if (!currentRouteRef.current) return false;
 
-        if (dx === 0 && dy === 0) {
-            // El segmento es un punto
-            return Math.sqrt(
-                Math.pow(lat - x, 2) + Math.pow(lng - y, 2)
-            );
-        }
+		const routeCoords = currentRouteRef.current.coordinates;
+		const MAX_DISTANCE = 0.005; // Aproximadamente 500 metros en grados
 
-        const t = ((lat - x) * dx + (lng - y) * dy) / (dx * dx + dy * dy);
+		let minDistance = Infinity;
+		for (let i = 0; i < routeCoords.length - 1; i++) {
+			const distance = distanceToSegment(
+				latlng,
+				routeCoords[i],
+				routeCoords[i + 1]
+			);
+			minDistance = Math.min(minDistance, distance);
+		}
+		return minDistance <= MAX_DISTANCE;
+	};
 
-        if (t < 0) {
-            // Punto más cercano está en start
-            return Math.sqrt(
-                Math.pow(lat - x, 2) + Math.pow(lng - y, 2)
-            );
-        }
-        if (t > 1) {
-            // Punto más cercano está en end
-            return Math.sqrt(
-                Math.pow(lat - end.lat, 2) + Math.pow(lng - end.lng, 2)
-            );
-        }
+	// Función para calcular la distancia entre un punto y un segmento de línea
+	const distanceToSegment = (point, start, end) => {
+		const lat = point.lat;
+		const lng = point.lng;
+		const x = start.lat;
+		const y = start.lng;
+		const dx = end.lat - x;
+		const dy = end.lng - y;
 
-        // Punto más cercano está en el segmento
-        const nearestX = x + t * dx;
-        const nearestY = y + t * dy;
-        return Math.sqrt(
-            Math.pow(lat - nearestX, 2) + Math.pow(lng - nearestY, 2)
-        );
-    };
+		if (dx === 0 && dy === 0) {
+			// El segmento es un punto
+			return Math.sqrt(Math.pow(lat - x, 2) + Math.pow(lng - y, 2));
+		}
 
-    // Función para calcular el punto más cercano en la ruta
-    const findClosestPointOnRoute = (latlng, coordinates) => {
-        let minDistance = Infinity;
-        let closestPointIndex = 0;
-        let closestPoint = null;
+		const t = ((lat - x) * dx + (lng - y) * dy) / (dx * dx + dy * dy);
 
-        for (let i = 0; i < coordinates.length - 1; i++) {
-            const distance = distanceToSegment(
-                latlng,
-                coordinates[i],
-                coordinates[i + 1]
-            );
-            if (distance < minDistance) {
-                minDistance = distance;
-                closestPointIndex = i;
-                closestPoint = coordinates[i];
-            }
-        }
+		if (t < 0) {
+			// Punto más cercano está en start
+			return Math.sqrt(Math.pow(lat - x, 2) + Math.pow(lng - y, 2));
+		}
+		if (t > 1) {
+			// Punto más cercano está en end
+			return Math.sqrt(
+				Math.pow(lat - end.lat, 2) + Math.pow(lng - end.lng, 2)
+			);
+		}
 
-        return { point: closestPoint, index: closestPointIndex };
-    };
+		// Punto más cercano está en el segmento
+		const nearestX = x + t * dx;
+		const nearestY = y + t * dy;
+		return Math.sqrt(
+			Math.pow(lat - nearestX, 2) + Math.pow(lng - nearestY, 2)
+		);
+	};
 
-    // Función para calcular los puntos de la ruta dentro de una distancia
-    const getRouteSegment = (startIndex, distance) => {
-        const coordinates = currentRouteRef.current.coordinates;
-        let accumulatedDistance = 0;
-        let points = [coordinates[startIndex]];
+	// Función para guardar una nueva ruta
+	const saveRoute = async (waypoints) => {
+		if (!waypoints || waypoints.length < 2) {
+			console.error(
+				"Se necesitan al menos dos puntos para crear una ruta"
+			);
+			return null;
+		}
 
-        for (let i = startIndex; i < coordinates.length - 1; i++) {
-            const segmentDistance = L.latLng(coordinates[i]).distanceTo(L.latLng(coordinates[i + 1]));
-            if (accumulatedDistance + segmentDistance > distance) {
-                // Calcular el punto exacto donde se alcanza la distancia
-                const remainingDistance = distance - accumulatedDistance;
-                const ratio = remainingDistance / segmentDistance;
-                const lat = coordinates[i].lat + (coordinates[i + 1].lat - coordinates[i].lat) * ratio;
-                const lng = coordinates[i].lng + (coordinates[i + 1].lng - coordinates[i].lng) * ratio;
-                points.push({ lat, lng });
-                break;
-            } else {
-                points.push(coordinates[i + 1]);
-                accumulatedDistance += segmentDistance;
-            }
-        }
+		try {
+			const response = await fetch(
+				`${process.env.REACT_APP_SERVER_PATH}/api/routes/routes`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						name: `Route ${new Date().toISOString()}`,
+						waypoints: waypoints,
+					}),
+				}
+			);
 
-        return points;
-    };
+			if (!response.ok) {
+				throw new Error(`Error HTTP: ${response.status}`);
+			}
 
-    // Función para colorear un segmento de la ruta
-    const colorRouteSegment = (startLatLng, distance, color) => {
-        if (!currentRouteRef.current) return;
+			const route = await response.json();
+			return route;
+		} catch (error) {
+			console.error("Error saving route:", error);
+			// Aquí podrías mostrar una notificación al usuario
+			return null;
+		}
+	};
 
-        const coordinates = currentRouteRef.current.coordinates;
-        const { index } = findClosestPointOnRoute(startLatLng, coordinates);
-        const segmentPoints = getRouteSegment(index, distance);
+	// Función para guardar un marcador
+	const saveMarker = async (latlng, distance = 3000, color = "yellow") => {
+		if (!currentRouteId.current) return;
 
-        // Crear una nueva polyline coloreada
-        const coloredRoute = L.polyline(segmentPoints, {
-            color: color,
-            weight: 5,
-            opacity: 0.7
-        }).addTo(mapRef.current);
+		try {
+			const response = await fetch(
+				`${process.env.REACT_APP_SERVER_PATH}/api/routes/markers`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						routeId: currentRouteId.current,
+						position: {
+							lat: latlng.lat,
+							lng: latlng.lng,
+						},
+						traceDistance: distance,
+						traceColor: color,
+						metadata: {
+							type: "warning",
+							severity: "medium",
+							description: "Punto de control",
+						},
+					}),
+				}
+			);
 
-        // Guardar referencia para poder eliminarla después si es necesario
-        coloredRoutesRef.current.push(coloredRoute);
-    };
-    
-    useEffect(() => {
-        if (!mapRef.current) {
+			if (!response.ok) throw new Error("Error al guardar el marcador");
+
+			return await response.json();
+		} catch (error) {
+			console.error("Error saving marker:", error);
+		}
+	};
+
+	// Función para cargar los marcadores de una ruta
+	const loadRouteMarkers = async (routeId) => {
+		try {
+			const response = await fetch(
+				`${process.env.REACT_APP_SERVER_PATH}/api/routes/routes/${routeId}/markers`
+			);
+			if (!response.ok) throw new Error("Error al cargar los marcadores");
+
+			const markers = await response.json();
+
+			// Limpiar marcadores y rutas coloreadas existentes
+			if (markersLayerRef.current) {
+				markersLayerRef.current.clearLayers();
+			}
+
+			coloredRoutesRef.current.forEach((route) => {
+				if (mapRef.current && route) {
+					mapRef.current.removeLayer(route);
+				}
+			});
+			coloredRoutesRef.current = [];
+
+			// Añadir los marcadores cargados
+			markers.forEach((markerData) => {
+				const latlng = L.latLng(
+					markerData.position.lat,
+					markerData.position.lng
+				);
+				const marker = createMarker(latlng, markerData._id);
+
+				if (marker) {
+					colorRouteSegment(
+						latlng,
+						markerData.traceDistance || 3000,
+						markerData.traceColor || "yellow"
+					);
+				}
+			});
+		} catch (error) {
+			console.error("Error loading markers:", error);
+		}
+	};
+
+	// Función modificada para crear marcadores
+	const createMarker = (latlng, markerId) => {
+		if (!mapRef.current || !markersLayerRef.current) {
+			console.warn(
+				"El mapa o la capa de marcadores no está inicializada"
+			);
+			return null;
+		}
+
+		try {
+			const marker = L.marker(latlng, {
+				icon: warningIcon,
+				draggable: true,
+			});
+			marker.markerId = markerId;
+			marker.bindPopup(`
+                <div>
+                    <p>Latitud: ${latlng.lat.toFixed(4)}</p>
+                    <p>Longitud: ${latlng.lng.toFixed(4)}</p>
+                    <button class="marker-delete-btn">Eliminar</button>
+                </div>
+            `);
+			// Manejador del popup
+			marker.on("popupopen", () => {
+				const deleteBtn = document.querySelector(".marker-delete-btn");
+				if (deleteBtn) {
+					deleteBtn.onclick = async () => {
+						try {
+							if (marker.markerId) {
+								const response = await fetch(
+									`${process.env.REACT_APP_SERVER_PATH}/api/routes/markers/${marker.markerId}`,
+									{
+										method: "DELETE",
+									}
+								);
+								if (!response.ok)
+									throw new Error(
+										"Error al eliminar el marcador"
+									);
+							}
+							if (markersLayerRef.current) {
+								markersLayerRef.current.removeLayer(marker);
+								coloredRoutesRef.current.forEach((route) => {
+									if (mapRef.current && route) {
+										mapRef.current.removeLayer(route);
+									}
+								});
+								coloredRoutesRef.current = [];
+							}
+						} catch (error) {
+							console.error("Error deleting marker:", error);
+						}
+					};
+				}
+			});
+
+			// Manejador de arrastre
+			marker.on("dragend", async (event) => {
+				const newLatLng = event.target.getLatLng();
+				if (isNearRoute(newLatLng)) {
+					try {
+						if (marker.markerId) {
+							const response = await fetch(
+								`${process.env.REACT_APP_SERVER_PATH}/api/routes/markers/${marker.markerId}`,
+								{
+									method: "PUT",
+									headers: {
+										"Content-Type": "application/json",
+									},
+									body: JSON.stringify({
+										position: {
+											lat: newLatLng.lat,
+											lng: newLatLng.lng,
+										},
+									}),
+								}
+							);
+							if (!response.ok)
+								throw new Error(
+									"Error al actualizar el marcador"
+								);
+						}
+
+						if (mapRef.current) {
+							coloredRoutesRef.current.forEach((route) => {
+								if (route) mapRef.current.removeLayer(route);
+							});
+							coloredRoutesRef.current = [];
+							colorRouteSegment(newLatLng, 3000, "yellow");
+						}
+					} catch (error) {
+						console.error("Error updating marker position:", error);
+						marker.setLatLng(event.oldLatLng);
+					}
+				} else {
+					marker.setLatLng(event.oldLatLng);
+				}
+			});
+			markersLayerRef.current.addLayer(marker);
+
+			return marker;
+		} catch (error) {
+			console.error("Error al crear el marcador:", error);
+			return null;
+		}
+	};
+
+	// Función para calcular el punto más cercano en la ruta
+	const findClosestPointOnRoute = (latlng, coordinates) => {
+		if (!coordinates || coordinates.length === 0) {
+			console.error("No hay coordenadas de ruta disponibles");
+			return { point: null, index: -1 };
+		}
+
+		let minDistance = Infinity;
+		let closestPointIndex = 0;
+		let closestPoint = null;
+
+		try {
+			for (let i = 0; i < coordinates.length - 1; i++) {
+				const distance = distanceToSegment(
+					latlng,
+					coordinates[i],
+					coordinates[i + 1]
+				);
+				if (distance < minDistance) {
+					minDistance = distance;
+					closestPointIndex = i;
+					closestPoint = coordinates[i];
+				}
+			}
+		} catch (error) {
+			console.error("Error al buscar el punto más cercano:", error);
+			return { point: null, index: -1 };
+		}
+
+		return { point: closestPoint, index: closestPointIndex };
+	};
+
+	// Función para calcular los puntos de la ruta dentro de una distancia
+	const getRouteSegment = (startIndex, distance) => {
+		const coordinates = currentRouteRef.current.coordinates;
+		let accumulatedDistance = 0;
+		let points = [coordinates[startIndex]];
+
+		for (let i = startIndex; i < coordinates.length - 1; i++) {
+			const segmentDistance = L.latLng(coordinates[i]).distanceTo(
+				L.latLng(coordinates[i + 1])
+			);
+			if (accumulatedDistance + segmentDistance > distance) {
+				// Calcular el punto exacto donde se alcanza la distancia
+				const remainingDistance = distance - accumulatedDistance;
+				const ratio = remainingDistance / segmentDistance;
+				const lat =
+					coordinates[i].lat +
+					(coordinates[i + 1].lat - coordinates[i].lat) * ratio;
+				const lng =
+					coordinates[i].lng +
+					(coordinates[i + 1].lng - coordinates[i].lng) * ratio;
+				points.push({ lat, lng });
+				break;
+			} else {
+				points.push(coordinates[i + 1]);
+				accumulatedDistance += segmentDistance;
+			}
+		}
+
+		return points;
+	};
+
+	// Función para colorear un segmento de la ruta
+	const colorRouteSegment = (startLatLng, distance, color) => {
+		if (!currentRouteRef.current) return;
+
+		const coordinates = currentRouteRef.current.coordinates;
+		const { index } = findClosestPointOnRoute(startLatLng, coordinates);
+		const segmentPoints = getRouteSegment(index, distance);
+
+		// Crear una nueva polyline coloreada
+		const coloredRoute = L.polyline(segmentPoints, {
+			color: color,
+			weight: 5,
+			opacity: 1,
+			zIndex: 5000,
+		}).addTo(mapRef.current);
+
+		// Guardar referencia para poder eliminarla después si es necesario
+		coloredRoutesRef.current.push(coloredRoute);
+	};
+
+	const fetchUser = async () => {
+		try {
+			const response = await axios.get(
+				`${process.env.REACT_APP_SERVER_PATH}/api/auth/me`,
+				{
+					withCredentials: true,
+				}
+			);
+			setUser(response.data.name);
+		} catch (error) {
+			if (error.response.status === 401) {
+				console.log("Sin tóken");
+			} else {
+				console.error("Error al obtener el usuario:", error);
+			}
+		}
+	};
+
+	useEffect(() => {
+		fetchUser();
+	}, []);
+
+	useEffect(() => {
+		if (!mapRef.current) {
+			const loaderContainer = document.querySelector('div.loader-container');
             // Inicializar el mapa
-            mapRef.current = L.map("map", {
-                maxBoundsViscosity: 1,
-            }).setView([-32.37974, -56.08458], 7);
+			mapRef.current = L.map("map", {
+				maxBoundsViscosity: 1,
+				scrollWheelZoom: false,
+			}).setView([-32.37974, -56.08458], 7);
 
-            var southWest = L.latLng(-35.7824481, -58.4948438),
-                northEast = L.latLng(-30.0853962, -53.0755833),
-                myBounds = L.latLngBounds(southWest, northEast);
+			var southWest = L.latLng(-35.7824481, -58.4948438),
+				northEast = L.latLng(-30.0853962, -53.0755833),
+				myBounds = L.latLngBounds(southWest, northEast);
 
-            mapRef.current.setMaxBounds(myBounds);
+			mapRef.current.setMaxBounds(myBounds);
 
-            L.Marker.prototype.options.icon = defaultIcon;
+			L.Marker.prototype.options.icon = defaultIcon;
 
-            // Capa base del mapa
-            L.tileLayer(
-                "https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png",
-                {
-                    minZoom: 7,
-                    maxZoom: 12,
-                    attribution:
-                        '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-                }
-            ).addTo(mapRef.current);
+			// Capa base del mapa
+			L.tileLayer(
+				"https://tiles.stadiamaps.com/tiles/osm_bright/{z}/{x}/{y}{r}.png",
+				{
+					minZoom: 7,
+					maxZoom: 12,
+					attribution:
+						'&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+				}
+			).addTo(mapRef.current);
 
-            // Capa para los marcadores personalizados
-            markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
+			// Capa para los marcadores personalizados
+			markersLayerRef.current = L.layerGroup().addTo(mapRef.current);
 
-            // Control de rutas
-            routingControlRef.current = L.Routing.control({
-                waypoints: [],
-                addWaypoints: true,
-                draggableWaypoints: false,
-                allowDropWaypoints: false,
-                showAlternatives: false,
-                router: new L.Routing.mapbox(
-                    "pk.eyJ1IjoiZnJhbmNvLXNhbmNyaXMyOSIsImEiOiJjbTJhendnc3cwbXFsMmtxNHBzYm80ZGdtIn0.gHW9ZszrPfh0cUs-zVvI3Q"
-                ),
-                geocoder: L.Control.Geocoder.nominatim({
-                    geocodingQueryParams: { countrycodes: "UY" }
-                }),
-                lineOptions: {
-                    styles: [{ color: "green", weight: 3 }],
-                    addWaypoints: false
-                },
-                waypointMode: "snap"
-            }).addTo(mapRef.current);
+			// Añadir evento de zoom
+			mapRef.current.on("zoomend", () => {
+				if (mapRef.current) {
+					// Reordenar las capas
+					coloredRoutesRef.current.forEach((route) => {
+						route.bringToFront();
+					});
+				}
+			});
 
-            // Cuando se genera una ruta
-            routingControlRef.current.on('routeselected', function(e) {
-                currentRouteRef.current = e.route;
-                e.route.routeLine.on('click', L.DomEvent.stop);
-                e.route.routeLine.off('click');
-            });
+			// Control de rutas
+			routingControlRef.current = L.Routing.control({
+				waypoints: [],
+				addWaypoints: true,
+				draggableWaypoints: false,
+				allowDropWaypoints: false,
+				showAlternatives: false,
+				router: new L.Routing.mapbox(
+					"pk.eyJ1IjoiZnJhbmNvLXNhbmNyaXMyOSIsImEiOiJjbTJhendnc3cwbXFsMmtxNHBzYm80ZGdtIn0.gHW9ZszrPfh0cUs-zVvI3Q"
+				),
+				geocoder: L.Control.Geocoder.nominatim({
+					geocodingQueryParams: { countrycodes: "UY" },
+				}),
+				lineOptions: {
+					styles: [{ color: "green", weight: 3, zIndex: 1 }],
+					addWaypoints: false,
+				},
+				waypointMode: "snap",
+			}).addTo(mapRef.current);
 
-            // Función para verificar si un punto está cerca de la ruta
-            const isNearRoute = (latlng) => {
-                if (!currentRouteRef.current) return false;
-                
-                const routeCoords = currentRouteRef.current.coordinates;
-                const MAX_DISTANCE = 0.005; // Aproximadamente 500 metros en grados
-                
-                let minDistance = Infinity;
-                for (let i = 0; i < routeCoords.length - 1; i++) {
-                    const distance = distanceToSegment(
-                        latlng,
-                        routeCoords[i],
-                        routeCoords[i + 1]
-                    );
-                    minDistance = Math.min(minDistance, distance);
-                }
-                return minDistance <= MAX_DISTANCE;
-            };
+			// Cuando se genera una ruta
+			routingControlRef.current.on("routeselected", async function (e) {
+                loaderContainer.classList.add("loader-active");
+				currentRouteRef.current = {
+					coordinates: Array.isArray(e.route.coordinates)
+						? e.route.coordinates
+						: e.route.geometry.coordinates.map((coord) => ({
+								lng: coord[1],
+								lat: coord[0],
+						  })),
+				};
 
-            // Modificar el evento de clic para incluir el coloreado de ruta
-            mapRef.current.on('click', function(e) {
-                if (currentRouteRef.current && isNearRoute(e.latlng)) {
-                    const marker = L.marker(e.latlng, {
-                        icon: warningIcon,
-                        draggable: true
-                    });
+				try {
+					const waypoints = routingControlRef.current
+						.getWaypoints()
+						.filter((wp) => wp.latLng)
+						.map((wp) => ({
+							lat: wp.latLng.lat,
+							lng: wp.latLng.lng,
+						}));
+					if (waypoints.length >= 2) {
+						const route = await saveRoute(waypoints);
+						if (route) {
+							currentRouteId.current = route._id;
+							// Cargar marcadores existentes
+							await loadRouteMarkers(route._id);
+						}
+					}
+				} catch (error) {
+					console.error("Error al procesar la ruta:", error);
+				}
+                loaderContainer.classList.remove("loader-active");
+			});
 
-                    // Colorear 5km de la ruta en amarillo
-                    colorRouteSegment(e.latlng, 3000, 'yellow');
+			// Función para verificar si un punto está cerca de la ruta
+			const isNearRoute = (latlng) => {
+				if (!currentRouteRef.current) return false;
 
-                    marker.bindPopup(`
-                        <div>
-                            <p>Latitud: ${e.latlng.lat.toFixed(4)}</p>
-                            <p>Longitud: ${e.latlng.lng.toFixed(4)}</p>
-                            <button class="marker-delete-btn">Eliminar</button>
-                        </div>
-                    `);
+				const routeCoords = currentRouteRef.current.coordinates;
+				const MAX_DISTANCE = 0.005; // Aproximadamente 500 metros en grados
 
-                    marker.on('popupopen', function() {
-                        const deleteBtn = document.querySelector('.marker-delete-btn');
-                        if (deleteBtn) {
-                            deleteBtn.onclick = () => {
-                                markersLayerRef.current.removeLayer(marker);
-                                // Limpiar las rutas coloreadas cuando se elimina el marcador
-                                coloredRoutesRef.current.forEach(route => {
-                                    mapRef.current.removeLayer(route);
-                                });
-                                coloredRoutesRef.current = [];
-                            };
-                        }
-                    });
+				let minDistance = Infinity;
+				for (let i = 0; i < routeCoords.length - 1; i++) {
+					const distance = distanceToSegment(
+						latlng,
+						routeCoords[i],
+						routeCoords[i + 1]
+					);
+					minDistance = Math.min(minDistance, distance);
+				}
+				return minDistance <= MAX_DISTANCE;
+			};
 
-                    marker.on('drag', function(event) {
-                        if (!isNearRoute(event.latlng)) {
-                            marker.setLatLng(event.oldLatLng);
-                        } else {
-                            // Actualizar el coloreado de la ruta al arrastrar
-                            coloredRoutesRef.current.forEach(route => {
-                                mapRef.current.removeLayer(route);
-                            });
-                            coloredRoutesRef.current = [];
-                            colorRouteSegment(event.latlng, 3000, 'yellow');
-                        }
-                    });
+			if (user) {
+				// Modificar el evento de clic para incluir el coloreado de ruta
+				mapRef.current.on("click", async function (e) {
+					if (currentRouteRef.current && isNearRoute(e.latlng)) {
+                        loaderContainer.classList.add("loader-active");
+						try {
+                            const savedMarker = await saveMarker(e.latlng);
+							if (savedMarker) {
+                                createMarker(e.latlng, savedMarker._id);
+								colorRouteSegment(e.latlng, 3000, "yellow");
+							}
+						} catch (error) {
+                            console.error("Error al crear el marcador:", error);
+						}
+                        loaderContainer.classList.remove("loader-active");
+					}
+				});
+			}
+		}
 
-                    markersLayerRef.current.addLayer(marker);
-                }
-            });
-        }
+		return () => {
+			if (mapRef.current) {
+				// Limpiar referencias antes de desmontar
+				coloredRoutesRef.current.forEach((route) => {
+					if (mapRef.current && route) {
+						mapRef.current.removeLayer(route);
+					}
+				});
+				coloredRoutesRef.current = [];
 
-        return () => {
-            if (mapRef.current) {
-                mapRef.current.remove();
-                mapRef.current = null;
-            }
-        };
-    }, []);
+				if (markersLayerRef.current) {
+					markersLayerRef.current.clearLayers();
+				}
 
-    return <div id="map" style={{ height: "600px", width: "auto" }}></div>;
+				mapRef.current.remove();
+				mapRef.current = null;
+				routingControlRef.current = null;
+				currentRouteRef.current = null;
+				markersLayerRef.current = null;
+			}
+		};
+	});
+
+	return (
+		<>
+			<div className="loader-container">
+				<div className="loader"></div>
+			</div>
+			<div id="map" style={{ height: "600px", width: "auto" }}></div>
+		</>
+	);
 };
 
 export default Mapa;
