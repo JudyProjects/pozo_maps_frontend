@@ -5,7 +5,12 @@ import "leaflet-routing-machine/dist/leaflet-routing-machine.css";
 import "leaflet-routing-machine";
 import "leaflet-control-geocoder";
 import axios from "axios";
-import { defaultIcon, warningIcon } from "./Map_Components/constants";
+import {
+	defaultIcon,
+	warningIcon,
+	dangerIcon,
+} from "./Map_Components/constants";
+import ModalComentario from "./Map_Components/ModalComentario";
 
 const Mapa = () => {
 	const mapRef = useRef(null);
@@ -15,6 +20,34 @@ const Mapa = () => {
 	const coloredRoutesRef = useRef([]);
 	const [user, setUser] = useState(null);
 	const currentRouteId = useRef(null);
+	const isRestoringRoute = useRef(false);
+	const mapInitialized = useRef(false);
+
+	const [modalVisible, setModalVisible] = useState(false);
+	const [modalPromiseResolve, setModalPromiseResolve] = useState(null);
+	const [formData, setFormData] = useState({
+		comentario: "",
+		distancia: "",
+		color: "",
+	});
+
+	const openModal = () => {
+		return new Promise((resolve) => {
+			setModalPromiseResolve(() => resolve);
+			setModalVisible(true);
+		});
+	};
+
+	const handleModalClose = (result) => {
+		setModalVisible(false);
+		if (modalPromiseResolve) {
+			if (result.confirmed) {
+				setFormData(result.data);
+			}
+			modalPromiseResolve(result);
+			setModalPromiseResolve(null);
+		}
+	};
 
 	const isNearRoute = (latlng) => {
 		if (!currentRouteRef.current) return false;
@@ -107,7 +140,7 @@ const Mapa = () => {
 	};
 
 	// Función para guardar un marcador
-	const saveMarker = async (latlng, distance = 3000, color = "yellow") => {
+	const saveMarker = async (latlng, formData) => {
 		if (!currentRouteId.current) return;
 
 		try {
@@ -124,20 +157,28 @@ const Mapa = () => {
 							lat: latlng.lat,
 							lng: latlng.lng,
 						},
-						traceDistance: distance,
-						traceColor: color,
-						metadata: {
-							type: "warning",
-							severity: "medium",
-							description: "Punto de control",
-						},
+						traceDistance: formData.distancia,
+						traceColor: formData.color,
+						comentario: formData.comentario,
 					}),
 				}
 			);
-
 			if (!response.ok) throw new Error("Error al guardar el marcador");
+			const savedMarker = await response.json();
 
-			return await response.json();
+			// Crear el marcador y colorear la ruta sin recargar todos los marcadores
+			const marker = createMarker(
+				latlng,
+				savedMarker._id,
+				formData.color,
+				formData.distancia,
+				formData.comentario
+			);
+			if (marker) {
+				colorRouteSegment(latlng, formData.distancia, formData.color);
+			}
+
+			return savedMarker;
 		} catch (error) {
 			console.error("Error saving marker:", error);
 		}
@@ -153,7 +194,7 @@ const Mapa = () => {
 
 			const markers = await response.json();
 
-			// Limpiar marcadores y rutas coloreadas existentes
+			// Limpiar solo los marcadores y rutas coloreadas
 			if (markersLayerRef.current) {
 				markersLayerRef.current.clearLayers();
 			}
@@ -171,7 +212,13 @@ const Mapa = () => {
 					markerData.position.lat,
 					markerData.position.lng
 				);
-				const marker = createMarker(latlng, markerData._id);
+				const marker = createMarker(
+					latlng,
+					markerData._id,
+					markerData.traceColor,
+					markerData.traceDistance,
+					markerData.comentario
+				);
 
 				if (marker) {
 					colorRouteSegment(
@@ -187,7 +234,7 @@ const Mapa = () => {
 	};
 
 	// Función modificada para crear marcadores
-	const createMarker = (latlng, markerId) => {
+	const createMarker = (latlng, markerId, color, distancia, comentario) => {
 		if (!mapRef.current || !markersLayerRef.current) {
 			console.warn(
 				"El mapa o la capa de marcadores no está inicializada"
@@ -197,15 +244,19 @@ const Mapa = () => {
 
 		try {
 			const marker = L.marker(latlng, {
-				icon: warningIcon,
+				icon: color === "yellow" ? warningIcon : dangerIcon,
 				draggable: true,
 			});
 			marker.markerId = markerId;
 			marker.bindPopup(`
-                <div>
-                    <p>Latitud: ${latlng.lat.toFixed(4)}</p>
-                    <p>Longitud: ${latlng.lng.toFixed(4)}</p>
-                    <button class="marker-delete-btn">Eliminar</button>
+                <div class="d-flex flex-column">
+                    <div>
+                        <p class="fs-6"><strong>Distancia:</strong> ${
+							distancia / 1000
+						}km</p>
+                        <p class="fs-6"><strong>Comentario:</strong> ${comentario}</p>
+                    </div>
+                    <button class="btn btn-outline-danger marker-delete-btn align-self-center">Eliminar</button>
                 </div>
             `);
 			// Manejador del popup
@@ -357,12 +408,12 @@ const Mapa = () => {
 	};
 
 	// Función para colorear un segmento de la ruta
-	const colorRouteSegment = (startLatLng, distance, color) => {
+	const colorRouteSegment = (startLatLng, distancia, color) => {
 		if (!currentRouteRef.current) return;
 
 		const coordinates = currentRouteRef.current.coordinates;
 		const { index } = findClosestPointOnRoute(startLatLng, coordinates);
-		const segmentPoints = getRouteSegment(index, distance);
+		const segmentPoints = getRouteSegment(index, distancia);
 
 		// Crear una nueva polyline coloreada
 		const coloredRoute = L.polyline(segmentPoints, {
@@ -399,16 +450,18 @@ const Mapa = () => {
 	}, []);
 
 	useEffect(() => {
-		if (!mapRef.current) {
-			const loaderContainer = document.querySelector('div.loader-container');
-            // Inicializar el mapa
+		if (!mapRef.current && !mapInitialized.current) {
+			mapInitialized.current = true;
+			const loaderContainer = document.querySelector(
+				"div.loader-container"
+			);
+			// Inicializar el mapa
 			mapRef.current = L.map("map", {
 				maxBoundsViscosity: 1,
-				scrollWheelZoom: false,
 			}).setView([-32.37974, -56.08458], 7);
 
-			var southWest = L.latLng(-35.7824481, -58.4948438),
-				northEast = L.latLng(-30.0853962, -53.0755833),
+			var southWest = L.latLng(-36.5, -59.5), // Más al sur y oeste
+				northEast = L.latLng(-29.5, -52.0), // Más al norte y este
 				myBounds = L.latLngBounds(southWest, northEast);
 
 			mapRef.current.setMaxBounds(myBounds);
@@ -459,9 +512,41 @@ const Mapa = () => {
 				waypointMode: "snap",
 			}).addTo(mapRef.current);
 
+			// Manejar cambios en los waypoints
+			routingControlRef.current.on(
+				"waypointschanged",
+				async function (e) {
+					const waypoints = e.waypoints;
+					// Si hay menos de 2 waypoints o se eliminó un waypoint
+					if ((waypoints[0].name === "" || undefined) || (waypoints[1].name === "" || undefined)) {
+						// Limpiar los marcadores
+						if (markersLayerRef.current) {
+							markersLayerRef.current.clearLayers();
+						}
+
+						// Limpiar las rutas coloreadas
+						coloredRoutesRef.current.forEach((route) => {
+							if (mapRef.current && route) {
+								mapRef.current.removeLayer(route);
+							}
+						});
+						coloredRoutesRef.current = [];
+
+						// Resetear las referencias de la ruta actual
+						currentRouteRef.current = null;
+						currentRouteId.current = null;
+					}
+				}
+			);
+
 			// Cuando se genera una ruta
 			routingControlRef.current.on("routeselected", async function (e) {
-                loaderContainer.classList.add("loader-active");
+				if (isRestoringRoute.current) {
+					isRestoringRoute.current = false;
+					return;
+				}
+
+				loaderContainer.classList.add("loader-active");
 				currentRouteRef.current = {
 					coordinates: Array.isArray(e.route.coordinates)
 						? e.route.coordinates
@@ -483,14 +568,13 @@ const Mapa = () => {
 						const route = await saveRoute(waypoints);
 						if (route) {
 							currentRouteId.current = route._id;
-							// Cargar marcadores existentes
 							await loadRouteMarkers(route._id);
 						}
 					}
 				} catch (error) {
 					console.error("Error al procesar la ruta:", error);
 				}
-                loaderContainer.classList.remove("loader-active");
+				loaderContainer.classList.remove("loader-active");
 			});
 
 			// Función para verificar si un punto está cerca de la ruta
@@ -513,20 +597,43 @@ const Mapa = () => {
 			};
 
 			if (user) {
-				// Modificar el evento de clic para incluir el coloreado de ruta
 				mapRef.current.on("click", async function (e) {
 					if (currentRouteRef.current && isNearRoute(e.latlng)) {
-                        loaderContainer.classList.add("loader-active");
-						try {
-                            const savedMarker = await saveMarker(e.latlng);
-							if (savedMarker) {
-                                createMarker(e.latlng, savedMarker._id);
-								colorRouteSegment(e.latlng, 3000, "yellow");
+						loaderContainer.classList.add("loader-active");
+
+						// Esperar la respuesta del modal
+						const result = await openModal();
+
+						// Solo continuar si el usuario confirmó
+						if (result.confirmed) {
+							try {
+								const savedMarker = await saveMarker(
+									e.latlng,
+									result.data
+								);
+								if (savedMarker) {
+									createMarker(
+										e.latlng,
+										savedMarker._id,
+										result.data.color,
+										result.data.distancia,
+										result.data.comentario
+									);
+									colorRouteSegment(
+										e.latlng,
+										result.data.distancia,
+										result.data.color
+									);
+								}
+							} catch (error) {
+								console.error(
+									"Error al crear el marcador:",
+									error
+								);
 							}
-						} catch (error) {
-                            console.error("Error al crear el marcador:", error);
 						}
-                        loaderContainer.classList.remove("loader-active");
+
+						loaderContainer.classList.remove("loader-active");
 					}
 				});
 			}
@@ -551,16 +658,24 @@ const Mapa = () => {
 				routingControlRef.current = null;
 				currentRouteRef.current = null;
 				markersLayerRef.current = null;
+				mapInitialized.current = false;
 			}
 		};
-	});
+	}, [user]);
 
 	return (
 		<>
 			<div className="loader-container">
 				<div className="loader"></div>
 			</div>
-			<div id="map" style={{ height: "600px", width: "auto" }}></div>
+			<ModalComentario
+				visible={modalVisible}
+				onClose={handleModalClose}
+			/>
+			<div
+				id="map"
+				style={{ height: "600px", width: "auto", borderRadius: "10px" }}
+			></div>
 		</>
 	);
 };

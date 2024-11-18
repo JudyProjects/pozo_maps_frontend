@@ -74,7 +74,7 @@ body,
     position: absolute;
     width: 100%;
     height: 100%;
-    z-index: 10000;
+    z-index: 5000;
     background: rgba(255, 255, 255, 0.5); /* Fondo semitransparente */
     backdrop-filter: blur(1px); /* Aplicar desenfoque */
 }
@@ -98,4 +98,8 @@ body,
 	to {
 		clip-path: inset(0 -34% 0 0);
 	}
+}
+
+.modalComentario {
+    z-index: 10000;
 }

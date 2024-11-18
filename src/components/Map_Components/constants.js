@@ -1,6 +1,7 @@
 import L from "leaflet";
 import markerIconPng from "leaflet/dist/images/marker-icon.png";
 import warningIconPng from "../../resources/warningMarker.png";
+import dangerIconPng from "../../resources/dangerMarker.png";
 
 export const defaultIcon = L.icon({
   iconSize: [25, 41],
@@ -15,4 +16,11 @@ export const warningIcon = L.icon({
   iconAnchor: [10, 41],
   popupAnchor: [12, -40],
   iconUrl: warningIconPng
+});
+
+export const dangerIcon = L.icon({
+    iconSize: [40, 41],
+    iconAnchor: [10, 41],
+    popupAnchor: [12, -40],
+    iconUrl: dangerIconPng
 });
