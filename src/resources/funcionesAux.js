@@ -51,7 +51,8 @@ export const createMarker = (
 	currentRouteId,
 	currentRouteRef,
 	coloredRoutesRef,
-	loaderContainer
+	loaderContainer,
+	user
 ) => {
 	if (!mapRef || !markersLayerRef) {
 		console.warn("El mapa o la capa de marcadores no está inicializada");
@@ -67,6 +68,7 @@ export const createMarker = (
 			comentario: comentario,
 		});
 		marker.markerId = markerId;
+        console.log(user);
 		marker.bindPopup(`
             <div class="d-flex flex-column">
                 <div>
@@ -75,49 +77,69 @@ export const createMarker = (
 					}km</p>
                     <p class="fs-6"><strong>Comentario:</strong> ${comentario}</p>
                 </div>
-                <button class="btn btn-outline-danger marker-delete-btn align-self-center">Eliminar</button>
+                ${user ? `<button class="btn btn-outline-danger marker-delete-btn align-self-center">Eliminar</button>`
+						: ""
+				}
             </div>
         `);
 		// Manejador del popup
 		marker.on("popupopen", () => {
-			const deleteBtn = document.querySelector(".marker-delete-btn");
-			if (deleteBtn) {
-				deleteBtn.onclick = async () => {
-					try {
-						if (marker.markerId) {
-							const response = await fetch(
-								`${process.env.REACT_APP_SERVER_PATH}/api/routes/markers/${marker.markerId}`,
-								{
-									method: "DELETE",
-								}
-							);
-							if (!response.ok)
-								throw new Error(
-									"Error al eliminar el marcador"
+			if (user) {
+				const deleteBtn = document.querySelector(".marker-delete-btn");
+				if (deleteBtn) {
+					deleteBtn.onclick = async () => {
+						try {
+							if (marker.markerId) {
+								const response = await fetch(
+									`${process.env.REACT_APP_SERVER_PATH}/api/routes/markers/${marker.markerId}`,
+									{
+										method: "DELETE",
+									}
 								);
+								if (!response.ok)
+									throw new Error(
+										"Error al eliminar el marcador"
+									);
 
-							// Eliminar solo este marcador
-							markersLayerRef.removeLayer(marker);
+								// Eliminar solo este marcador
+								markersLayerRef.removeLayer(marker);
 
-							// Recargar todos los marcadores y sus colores
-							await loadRouteMarkers(
-								currentRouteId,
-								markersLayerRef,
-								coloredRoutesRef,
-								mapRef,
-								currentRouteId,
-								currentRouteRef
-							);
+								// Recargar todos los marcadores y sus colores
+								await loadRouteMarkers(
+									currentRouteId,
+									markersLayerRef,
+									coloredRoutesRef,
+									mapRef,
+									currentRouteId,
+									currentRouteRef
+								);
+							}
+						} catch (error) {
+							console.error("Error deleting marker:", error);
 						}
-					} catch (error) {
-						console.error("Error deleting marker:", error);
-					}
-				};
+					};
+				}
 			}
 		});
 
 		// Manejador de arrastre
 		marker.on("dragend", async (event) => {
+			if (!user) {
+				event.target.setLatLng(marker.getLatLng());
+				loaderContainer.classList.add("loader-active");
+				// Recargar todos los marcadores y sus colores
+				await loadRouteMarkers(
+					currentRouteId,
+					markersLayerRef,
+					coloredRoutesRef,
+					mapRef,
+					currentRouteId,
+					currentRouteRef
+				);
+				loaderContainer.classList.remove("loader-active");
+				return;
+			}
+
 			const newLatLng = event.target.getLatLng();
 			// Asegurarnos de que newLatLng es válido y tiene propiedades lat y lng
 			if (
@@ -231,7 +253,8 @@ export const loadRouteMarkers = async (
 	mapRef,
 	currentRouteId,
 	currentRouteRef,
-	loaderContainer
+	loaderContainer,
+	user
 ) => {
 	try {
 		const response = await fetch(
@@ -270,7 +293,8 @@ export const loadRouteMarkers = async (
 				currentRouteId,
 				currentRouteRef,
 				coloredRoutesRef,
-				loaderContainer
+				loaderContainer,
+				user
 			);
 
 			if (marker) {
@@ -298,7 +322,8 @@ export const saveMarker = async (
 	currentRouteId,
 	currentRouteRef,
 	coloredRoutesRef,
-	loaderContainer
+	loaderContainer,
+	user
 ) => {
 	if (!currentRouteId) return;
 
@@ -337,7 +362,8 @@ export const saveMarker = async (
 			currentRouteId,
 			currentRouteRef,
 			coloredRoutesRef,
-			loaderContainer
+			loaderContainer,
+			user
 		);
 		if (marker) {
 			colorRouteSegment(

@@ -29,7 +29,6 @@ const Mapa = () => {
 
 	const [modalVisible, setModalVisible] = useState(false);
 	const [modalPromiseResolve, setModalPromiseResolve] = useState(null);
-	const loaderContainer = document.querySelector("div.loader-container");
 	const [formData, setFormData] = useState({
 		comentario: "",
 		distancia: "",
@@ -78,6 +77,7 @@ const Mapa = () => {
 
 	useEffect(() => {
 		if (!mapRef.current && !mapInitialized.current) {
+            const loaderContainer = document.querySelector("div.loader-container");
 			mapInitialized.current = true;
 			// Inicializar el mapa
 			mapRef.current = L.map("map", {
@@ -204,7 +204,8 @@ const Mapa = () => {
 								mapRef.current,
 								currentRouteId.current,
 								currentRouteRef.current,
-								loaderContainer
+								loaderContainer,
+                                user
 							);
 						}
 					}
@@ -236,7 +237,8 @@ const Mapa = () => {
 									currentRouteId.current,
 									currentRouteRef.current,
 									coloredRoutesRef.current,
-									loaderContainer
+									loaderContainer,
+                                    user
 								);
 								if (savedMarker) {
 									createMarker(
