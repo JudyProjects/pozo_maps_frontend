@@ -5,6 +5,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
+    margin-bottom: 50px;
 }
 
 .cover-image {
@@ -32,6 +33,7 @@
 }
 
 .map-container{
+    position: relative;
     margin-bottom: 50px;
     margin-top: 50px;
 }

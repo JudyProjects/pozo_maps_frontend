@@ -1,70 +1,105 @@
 html,
 body,
 #root {
-    height: 100%;
-    margin: 0;
-    padding: 0;
+	height: 100%;
+	margin: 0;
+	padding: 0;
 }
 
 .App {
-    text-align: center;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
+	text-align: center;
+	min-height: 100%;
+	display: flex;
+	flex-direction: column;
 }
 
 .main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
 }
 
 .App-logo {
-    height: 40vmin;
-    pointer-events: none;
+	height: 40vmin;
+	pointer-events: none;
 }
 
 .btnPrimario {
-    background-color: #ff5720;
-    border-color: #ff5720;
+	background-color: #ff5720;
+	border-color: #ff5720;
 }
 
 .btnPrimario:hover {
-    background-color: #e85a0c;
-    border-color: #e85a0c;
+	background-color: #e85a0c;
+	border-color: #e85a0c;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
+	.App-logo {
+		animation: App-logo-spin infinite 20s linear;
+	}
 }
 
 .App-header {
-    background-color: #282c34;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
+	background-color: #282c34;
+	min-height: 100vh;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	font-size: calc(10px + 2vmin);
+	color: white;
 }
 
 .App-link {
-    color: #61dafb;
+	color: #61dafb;
 }
 
 @keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }
 
 .leaflet-routing-add-waypoint,
 .leaflet-routing-alt {
+	display: none;
+}
+
+.loader-container {
     display: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    z-index: 5000;
+    background: rgba(255, 255, 255, 0.5); /* Fondo semitransparente */
+    backdrop-filter: blur(1px); /* Aplicar desenfoque */
+}
+
+.loader {
+	width: 150px;
+	aspect-ratio: 4;
+	background: radial-gradient(circle closest-side, #37d3ab 90%, #0000) 0 /
+		calc(100% / 3) 100% space;
+	clip-path: inset(0 100% 0 0);
+	animation: l1 1s steps(4) infinite;
+}
+
+.loader-active {
+    display: flex !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+@keyframes l1 {
+	to {
+		clip-path: inset(0 -34% 0 0);
+	}
+}
+
+.modalComentario {
+    z-index: 10000;
 }

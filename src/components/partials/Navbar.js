@@ -18,7 +18,11 @@ const Navbar = () => {
                 });
                 setUsername(response.data.name);
             } catch (error) {
-                console.error('Error al obtener el usuario:', error);
+                if (error.response.status === 401) {
+                    console.error('Sin tóken');
+                } else {
+                    console.error('Error al obtener el usuario:', error);
+                }
             }
         };
         fetchUser();
